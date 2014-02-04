@@ -188,6 +188,12 @@ google/tomcat/storage3
 </pre></code>
 </section><section data-background='#000000' data-transition='linear'>
 <h3>
+internal Ansible inventory model</h3>
+<ul><li>{'web1': {'groups': ['all', 'google', 'gcalendar', 'gdrive', 'gmail', 'frontend']}}</li><li>{'storage2': {'groups': ['all', 'google', 'gcalendar', 'gdrive', 'gmail', 'backend']}}</li></ul></section><section data-background='#000000' data-transition='linear'>
+<h3>
+internal Ansible inventory model - 2</h3>
+<ul><li>{'web1': {'groups': [{'groupname': 'all', 'depth': 0}, {'groupname': 'google', 'depth': 1}, {'groupname': 'gcalendar', 'depth': 2}, {'groupname': 'gdrive', 'depth': 2}, {'groupname': 'gmail', 'depth': 2}, {'groupname': 'frontend', 'depth': 3}]}}</li><li>{'storage2': {'groups': [{'groupname': 'all', 'depth': 0}, {'groupname': 'google', 'depth': 1}, {'groupname': 'gcalendar', 'depth': 2}, {'groupname': 'gdrive', 'depth': 2}, {'groupname': 'gmail', 'depth': 2}, {'groupname': 'frontend', 'depth': 3}]}}</li></ul></section><section data-background='#000000' data-transition='linear'>
+<h3>
 How about Inventory variable precedence?</h3>
 <ul><li>{'Ansible docs are very succinct on how inventory variables precede each other': None}</li><li>As all things Ansible, KEEP IT SIMPLE, they say.</li></ul><blockquote>There is only one Empire State Building. One Mona Lisa, etc. Figure out where to define a variable, and do not make it complicated.</blockquote><blockquote>Remember: Child groups override parent groups, and hosts always override their groups.</blockquote></section><section data-background='#000000' data-transition='linear'>
 <h3>
@@ -207,9 +213,168 @@ So ansible inventory is not a tree, but variables precede in child groups?</h3>
 
 </pre></code>
 <ul><li>When we encounter a child group, then "depth" gets a level deeper</li><li>Deeper == more child is more precedence</li><li>That *is* some kind of a tree, no?</li></ul></section><section data-background='#000000' data-transition='linear'>
+<h1>
+The project</h1>
+<ul><li>mostly a Java shop, very standardized</li><li>{'75% of all virtual machines are tomcat hosts': 'ONE ROLE'}</li><li>every tomcat app is a two node "cluster" behind a loadbalancer; per app one or more healthchecks</li><li>per cluster typically 1 application (context), sometimes more</li><li>1 big functional application typically == several application clusters</li><li>applications are part of a project, a project is part of an organisation</li><li>every application has three instances in each environment</li><li>['development', 'testing', 'production']</li><li>some applications communicate with other applications through the loadbalancer</li></ul></section><section data-background='#000000' data-transition='linear'>
 <h3>
-Q/A ?</h3>
-<p><img src='images/ginsys_def_Logo pos.png' style='border:0px;background-color:#000000'></p></section>
+inventory organisation</h3>
+<pre><code contenteditable>
+all inventory
+|_ organisation 1
+   |_ project 1
+      |_ application 1
+         |_ dev
+            |_ node 1
+            |_ node 2
+         |_ test
+            |_ ..
+         |_ prod
+            |_ ..
+      |_ application 2
+            |_ ..
+   |_ project 2
+      |_ ..
+|_ organisation 1
+   |_ ..
+
+</pre></code>
+</section><section data-background='#000000' data-transition='linear'>
+<h3>
+other group trees (remember different tree's?)</h3>
+<pre><code contenteditable>
+|_ development
+   |_ organisation1-dev
+      |_application1-dev
+|_ testing
+|_ production
+
+</pre></code>
+<h6>
+or also</h6>
+<pre><code contenteditable>
+tomcat
+|_ application1
+|_ application2
+ <some_other_server_role_besides_tomcat>
+|_ application7
+|_ application9
+
+</pre></code>
+</section><section data-background='#000000' data-transition='linear'>
+<h3>
+PLAYBOOK REMINDER: ansible loops => with_items</h3>
+<p>
+Please "deploy some apps"</p>
+<ul><li>app1</li><li>app2</li></ul><pre><code contenteditable>
+task:
+- command: a2ensite {{ item }}
+  with_items:
+    - application1
+    - application2
+
+</pre></code>
+</section><section data-background='#000000' data-transition='linear'>
+<h3>
+Within an application server</h3>
+<p>
+we have several apps and each app can have one or more healthchecks</p>
+<pre><code contenteditable>
+node
+|_ subapp1
+   |_ healthcheck1
+   |_ healthcheck2
+|_ subapp1
+    ......
+
+</pre></code>
+</section><section data-background='#000000' data-transition='linear'>
+<h3>
+data modelling so far: nodes, pools and healthchecks</h3>
+<pre><code contenteditable>
+publishedapps:
+- name:         "web"
+  type:        "{{ default_apptype }}"
+  port:         8080
+  lbport:       "{{ default_lbport }}"
+  monitortype:  "{{ default_monitortype }}"
+  quorum:       0
+  monitors:
+  - name:      "{{ default_monitor_appname }}"
+    type:       http
+    get_path:  "{{ default_get_path }}"
+    protocol:  "{{ default_protocol }}"
+    get_extra: "{{ default_get_extra }}"
+    receive:   "{{ default_receive_string }}"
+    monitorname: set to override standard acd constructed name
+
+</pre></code>
+</section><section data-background='#000000' data-transition='linear'>
+<h3>
+data modelling so far: nodes, pools and healthchecks - CONTINUED</h3>
+<pre><code contenteditable>
+(... publishedapps:)
+- name: tcp
+  type: tcp
+  port: 1234
+  lbport: 601234
+  monitortype: "{{ default_monitortype }}"
+  quorum: 0
+  monitors:
+  - name:         "tcp"
+    type:         tcp_half_open
+    send:         ""
+    receive:      ""
+
+</pre></code>
+</section><section data-background='#000000' data-transition='linear'>
+<h3>
+Create the cluster server pools (snippet of a task)</h3>
+<pre><code contenteditable>
+monitors: >
+                    {% for mon in item.monitors %}{{
+                      '/Common/'
+                      ~ item.monitorname |
+                        default( 'MON-'
+                        ~ item.type | default(default_apptype) | upper ~ '-' ~ app
+                        ~ ( '-' ~ item.name | default( 'web' ) ) | replace( '-web', '') | replace( '-tcp', '')
+                        ~ ( '-' ~ mon.name  | default( 'web' ) ) | replace( '-web', '') | replace( '-tcp', '')
+                        ~ '-' ~ zuil
+                        ) }}{% if not loop.last %},{% endif %}{% endfor %}
+
+with_items: publishedapps
+
+</pre></code>
+</section><section data-background='#000000' data-transition='linear'>
+<h3>
+Create the cluster application health checks  (snippet of a task)</h3>
+<pre><code contenteditable>
+module: ...
+  name: >
+                      {{  item.0.monitorname |
+                          default( 'MON-'
+                        ~ item.0.type | default(default_apptype) | upper ~ '-' ~ app
+                        ~ ( '-' ~ item.0.name | default( 'web' ) ) | replace( '-web', '')
+                        ~ ( '-' ~ item.1.name | default( 'web' ) ) | replace( '-web', '')
+                        ~ '-' ~ zuil
+                          ) }}
+  send: >
+                      {{  'GET ' ~ item.1.get_path ~ ' '
+                        ~ item.1.protocol  | default( default_protocol )
+                        ~ item.1.get_extra | default( '' )
+                        ~ '\\r\\n\\r\\n' }}
+  receive:            "{{ item.1.receive | default( default_receive_string ) }}"
+  port:               "{{ item.1.port | default( 0 ) }}"
+
+when:                 item.1.type is defined and item.1.type == 'http'
+with_subelements:
+- publishedapps
+- monitors
+
+</pre></code>
+</section><section data-background='#000000' data-transition='linear'>
+<h1>
+Q/A ?</h1>
+<p><img src='images/ginsys_def_Logo pos.png' style='border:0px;background-color:#000000'></p><blockquote>https://github.com/sergevanginderachter/revealjs-presentations/tree/cfgmgmtcampeu-ansible-inventory</blockquote></section>
 
                        </div>
 

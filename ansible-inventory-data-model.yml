@@ -39,7 +39,7 @@ slides:
        - Open Source island within the Flemish Govenrment Enterprise
        - 'upcoming stuff: "cloud" built on Ceph storage and Cloudstack'
        - Ansible since September 2012
-       - First upstream commit 
+       - First upstream commit
      - code: |
          commit da92ce796b48ec80e3ead1cfe9bcbc71f5fce805
          Author Serge van Ginderachter
@@ -163,6 +163,58 @@ slides:
 
 
    -
+     - h3: internal Ansible inventory model
+     - ul:
+       - web1:
+           groups:
+            - all
+            - google
+            - gcalendar
+            - gdrive
+            - gmail
+            - frontend
+       - storage2:
+            groups:
+            - all
+            - google
+            - gcalendar
+            - gdrive
+            - gmail
+            - backend
+
+   -
+     - h3: internal Ansible inventory model - 2
+     - ul:
+       - web1:
+           groups:
+                - groupname: all
+                  depth: 0
+                - groupname: google
+                  depth: 1
+                - groupname: gcalendar
+                  depth: 2
+                - groupname: gdrive
+                  depth: 2
+                - groupname: gmail
+                  depth: 2
+                - groupname: frontend
+                  depth: 3
+       - storage2:
+           groups:
+                - groupname: all
+                  depth: 0
+                - groupname: google
+                  depth: 1
+                - groupname: gcalendar
+                  depth: 2
+                - groupname: gdrive
+                  depth: 2
+                - groupname: gmail
+                  depth: 2
+                - groupname: frontend
+                  depth: 3
+
+   -
      - h3: How about Inventory variable precedence?
      - ul:
         - 'Ansible docs are very succinct on how inventory variables precede each other':
@@ -193,6 +245,163 @@ slides:
        - That *is* some kind of a tree, no?
 
    -
-     - h3: Q/A ?
+       - h1: The project
+       - ul:
+            - mostly a Java shop, very standardized
+            - 75% of all virtual machines are tomcat hosts: ONE ROLE
+            - every tomcat app is a two node "cluster" behind a loadbalancer; per app one or more healthchecks
+            - per cluster typically 1 application (context), sometimes more
+            - 1 big functional application typically == several application clusters
+            - applications are part of a project, a project is part of an organisation
+            - every application has three instances in each environment
+            -
+                - development
+                - testing
+                - production
+            - some applications communicate with other applications through the loadbalancer
+
+   -
+      - h3: inventory organisation
+      - code: |
+            all inventory
+            |_ organisation 1
+               |_ project 1
+                  |_ application 1
+                     |_ dev
+                        |_ node 1
+                        |_ node 2
+                     |_ test
+                        |_ ..
+                     |_ prod
+                        |_ ..
+                  |_ application 2
+                        |_ ..
+               |_ project 2
+                  |_ ..
+            |_ organisation 1
+               |_ ..
+
+   -
+     - h3: "other group trees (remember different tree's?)"
+     - code: |
+           |_ development
+              |_ organisation1-dev
+                 |_application1-dev
+           |_ testing
+           |_ production
+     - h6: or also
+     - code: |
+           tomcat
+           |_ application1
+           |_ application2
+            <some_other_server_role_besides_tomcat>
+           |_ application7
+           |_ application9
+
+   -
+     - h3: 'PLAYBOOK REMINDER: ansible loops => with_items'
+     - p: 'Please "deploy some apps"'
+     - ul:
+       - app1
+       - app2
+     - code: |
+           task:
+           - command: a2ensite {{ item }}
+             with_items:
+               - application1
+               - application2
+
+   -
+     - h3: Within an application server
+     - p: we have several apps and each app can have one or more healthchecks
+     - code: |
+           node
+           |_ subapp1
+              |_ healthcheck1
+              |_ healthcheck2
+           |_ subapp1
+               ......
+
+   -
+     - h3: "data modelling so far: nodes, pools and healthchecks"
+     - code: |
+            publishedapps:
+            - name:         "web"
+              type:        "{{ default_apptype }}"
+              port:         8080
+              lbport:       "{{ default_lbport }}"
+              monitortype:  "{{ default_monitortype }}"
+              quorum:       0
+              monitors:
+              - name:      "{{ default_monitor_appname }}"
+                type:       http
+                get_path:  "{{ default_get_path }}"
+                protocol:  "{{ default_protocol }}"
+                get_extra: "{{ default_get_extra }}"
+                receive:   "{{ default_receive_string }}"
+                monitorname: set to override standard acd constructed name
+
+   -
+     - h3: "data modelling so far: nodes, pools and healthchecks - CONTINUED"
+     - code: |
+            (... publishedapps:)
+            - name: tcp
+              type: tcp
+              port: 1234
+              lbport: 601234
+              monitortype: "{{ default_monitortype }}"
+              quorum: 0
+              monitors:
+              - name:         "tcp"
+                type:         tcp_half_open
+                send:         ""
+                receive:      ""
+
+   -
+     - h3: Create the cluster server pools (snippet of a task)
+     - code: |
+            monitors: >
+                                {% for mon in item.monitors %}{{
+                                  '/Common/'
+                                  ~ item.monitorname |
+                                    default( 'MON-'
+                                    ~ item.type | default(default_apptype) | upper ~ '-' ~ app
+                                    ~ ( '-' ~ item.name | default( 'web' ) ) | replace( '-web', '') | replace( '-tcp', '')
+                                    ~ ( '-' ~ mon.name  | default( 'web' ) ) | replace( '-web', '') | replace( '-tcp', '')
+                                    ~ '-' ~ zuil
+                                    ) }}{% if not loop.last %},{% endif %}{% endfor %}
+
+            with_items: publishedapps
+
+
+   -
+     - h3: Create the cluster application health checks  (snippet of a task)
+     - code: |
+          module: ...
+            name: >
+                                {{  item.0.monitorname |
+                                    default( 'MON-'
+                                  ~ item.0.type | default(default_apptype) | upper ~ '-' ~ app
+                                  ~ ( '-' ~ item.0.name | default( 'web' ) ) | replace( '-web', '')
+                                  ~ ( '-' ~ item.1.name | default( 'web' ) ) | replace( '-web', '')
+                                  ~ '-' ~ zuil
+                                    ) }}
+            send: >
+                                {{  'GET ' ~ item.1.get_path ~ ' '
+                                  ~ item.1.protocol  | default( default_protocol )
+                                  ~ item.1.get_extra | default( '' )
+                                  ~ '\\r\\n\\r\\n' }}
+            receive:            "{{ item.1.receive | default( default_receive_string ) }}"
+            port:               "{{ item.1.port | default( 0 ) }}"
+
+          when:                 item.1.type is defined and item.1.type == 'http'
+          with_subelements:
+          - publishedapps
+          - monitors
+
+
+   -
+     - h1: Q/A ?
      - image: 'images/ginsys_def_Logo pos.png'
+     - quote: https://github.com/sergevanginderachter/revealjs-presentations/tree/cfgmgmtcampeu-ansible-inventory
 
