@@ -1,0 +1,198 @@
+---
+header:
+  author: Serge van Ginderachter
+  title: Modelling infrastructure with ansible inventory data
+  description: How does Ansible model its inventory data and how can we use it?
+
+slides:
+
+   -
+     - h1: Modelling infrastructure with ansible inventory data
+     - h3: How does Ansible model its inventory data and how can we use it?
+
+   -
+     - h1: $ whoami
+     - h3: "Infrastructure \"consultant\""
+     - ul:
+       - "Serge van Ginderachter"
+       - "Started in M$ environments in Small Business Environments (at Belgian scale: 5-150 employees)"
+       - "Followed the Jedi path and turned to the bright side of life after 2005"
+
+   -
+     - h3:          $HOME
+     - ul:
+       - name:      Serge van Ginderachter
+       - url:       http://ginsys.eu
+       - email:     serge@ginsys.eu
+       - IM:        serge@vanginderachter.be
+       - twitter:   '@svg'
+       - IRC:       svg
+       - Github:    sergevanginderachter
+     - image:       'images/ginsys_def_Logo neg liggend bw.png'
+
+
+   -
+     - h3: Current major project
+     - ul:
+       - Flemish Government, one of the parts of Belgium
+       - "http://www.milieuinfo.be: about environmental things"
+       - Open Source island within the Flemish Govenrment Enterprise
+       - 'upcoming stuff: "cloud" built on Ceph storage and Cloudstack'
+       - Ansible since September 2012
+       - First upstream commit 
+     - code: |
+         commit da92ce796b48ec80e3ead1cfe9bcbc71f5fce805
+         Author Serge van Ginderachter
+         Date   Wed Oct 10 19:38:30 2012 +0200
+
+           fix missing --limit in docssite examples
+
+   -
+     - h3: Ansible Inventory
+     - code: |
+        ~/src/ansible/lib/ansible$ ls inventory/
+        dir.py
+        expand_hosts.py
+        group.py
+        host.py
+        ini.py
+        __init__.py
+        script.py
+        vars_plugins
+
+   -
+     - h3: ansible.inventory
+     - code: |
+           96         elif os.path.exists(host_list):
+           97             if os.path.isdir(host_list):
+           98                 # Ensure basedir is inside the directory
+           99                 self.host_list = os.path.join(self.host_list, "")
+           100                 self.parser = InventoryDirectory(filename=host_list)
+           101                 self.groups = self.parser.groups.values()
+           102             elif utils.is_executable(host_list):
+           103                 self.parser = InventoryScript(filename=host_list)
+           104                 self.groups = self.parser.groups.values()
+           105             else:
+           106                 self.parser = InventoryParser(filename=host_list)
+           107                 self.groups = self.parser.groups.values()
+           108
+           109             utils.plugins.vars_loader.add_directory(self.basedir(), with_subdir=True)
+
+
+   -
+     - h3: ansible.inventory.dir
+     - code: |
+           58             if os.path.isdir(fullpath):
+           59                 parser = InventoryDirectory(filename=fullpath)
+           60             elif utils.is_executable(fullpath):
+           61                 parser = InventoryScript(filename=fullpath)
+           62             else:
+           63                 parser = InventoryParser(filename=fullpath)
+           64             self.parsers.append(parser)
+
+
+   -
+     - h3: ~/src/ansible/examples/hosts
+     - code: |
+         # This is the default ansible 'hosts' file.
+
+         # Ungrouped hosts, specify before any group headers.
+         green.example.com
+         blue.example.com
+         192.168.100.1
+         192.168.100.10
+
+         # A collection of hosts belonging to the 'webservers' group
+         [webservers]
+         alpha.example.org
+         beta.example.org
+         192.168.1.100
+         192.168.1.110
+
+         # A collection of database servers in the 'dbservers' group
+         [dbservers]
+
+         db01.intranet.mydomain.net
+         db02.intranet.mydomain.net
+         10.25.1.56
+         10.25.1.57
+
+   -
+     - h3: The Ansible inventory is not a tree!
+     - code: |
+        google
+        google/gcalendar
+        google/gcalendar/backend
+        google/gcalendar/backend/storage1
+        google/gcalendar/backend/storage2
+        google/gcalendar/backend/storage3
+        google/gcalendar/frontend
+        google/gcalendar/frontend/web1
+        google/gcalendar/frontend/web2
+        google/gcalendar/frontend/web3
+        google/gdrive
+        google/gdrive/backend
+        google/gdrive/backend/storage1
+        google/gdrive/backend/storage2
+        google/gdrive/backend/storage3
+        google/gdrive/frontend
+        google/gdrive/frontend/web1
+        google/gdrive/frontend/web2
+        google/gdrive/frontend/web3
+        google/gmail
+        google/gmail/backend
+        google/gmail/backend/storage1
+        google/gmail/backend/storage2
+        google/gmail/backend/storage3
+        google/gmail/frontend
+        google/gmail/frontend/web1
+        google/gmail/frontend/web2
+        google/gmail/frontend/web3
+
+   -
+     - h3: Nodes can live in different groups on different levels
+     - code: |
+        google/nginx
+        google/nginx/web1
+        google/nginx/web2
+        google/nginx/web3
+        google/tomcat
+        google/tomcat/storage1
+        google/tomcat/storage2
+        google/tomcat/storage3
+
+
+   -
+     - h3: How about Inventory variable precedence?
+     - ul:
+        - 'Ansible docs are very succinct on how inventory variables precede each other':
+        - 'As all things Ansible, KEEP IT SIMPLE, they say.'
+
+     - quote: "There is only one Empire State Building. One Mona Lisa, etc. Figure out where to define a variable, and do not make it complicated."
+     - quote: "Remember: Child groups override parent groups, and hosts always override their groups."
+
+   -
+     - h3: So ansible inventory is not a tree, but variables precede in child groups?
+     - ul:
+       - Child? Parent? Tree?
+     - code: |
+         35     def add_child_group(self, group):
+         36
+         37         if self == group:
+         38             raise Exception("cannot add group to itself")
+         39
+         40         # do not add if it is already there
+         41         if not group in self.child_groups:
+         42             self.child_groups.append(group)
+         43             group.depth = max([self.depth+1, group.depth])
+         44             group.parent_groups.append(self)
+         45             self.clear_hosts_cache()
+     - ul:
+       - When we encounter a child group, then "depth" gets a level deeper
+       - Deeper == more child is more precedence
+       - That *is* some kind of a tree, no?
+
+   -
+     - h3: Q/A ?
+     - image: 'images/ginsys_def_Logo pos.png'
+

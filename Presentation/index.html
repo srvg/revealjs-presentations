@@ -1,0 +1,254 @@
+
+<!doctype html>
+<html lang="en">
+
+        <head>
+                <meta charset="utf-8">
+
+                <title>Modelling infrastructure with ansible inventory data</title>
+
+                <meta name="description" content="How does Ansible model its inventory data and how can we use it?">
+                <meta name="author" content="Serge van Ginderachter">
+
+                <meta name="apple-mobile-web-app-capable" content="yes" />
+                <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+                <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+                <link rel="stylesheet" href="css/reveal.min.css">
+                <link rel="stylesheet" href="css/theme/default.css" id="theme">
+
+                <!-- For syntax highlighting -->
+                <link rel="stylesheet" href="lib/css/zenburn.css">
+
+                <!-- If the query includes 'print-pdf', use the PDF print sheet -->
+                <script>
+                        document.write( '<link rel="stylesheet" href="css/print/' + ( window.location.search.match( /print-pdf/gi ) ? 'pdf' : 'paper' ) + '.css" type="text/css" media="print">' );
+                </script>
+
+                <!--[if lt IE 9]>
+                <script src="lib/js/html5shiv.js"></script>
+                <![endif]-->
+        </head>
+
+        <body>
+
+     <div class="reveal">
+
+                        <!-- Any section element inside of this container is displayed as a slide -->
+                        <div class="slides">
+
+<section data-background='#000000' data-transition='linear'>
+<h1>
+Modelling infrastructure with ansible inventory data</h1>
+<h3>
+How does Ansible model its inventory data and how can we use it?</h3>
+</section><section data-background='#000000' data-transition='linear'>
+<h1>
+$ whoami</h1>
+<h3>
+Infrastructure "consultant"</h3>
+<ul><li>Serge van Ginderachter</li><li>Started in M$ environments in Small Business Environments (at Belgian scale: 5-150 employees)</li><li>Followed the Jedi path and turned to the bright side of life after 2005</li></ul></section><section data-background='#000000' data-transition='linear'>
+<h3>
+$HOME</h3>
+<ul><li>{'name': 'Serge van Ginderachter'}</li><li>{'url': 'http://ginsys.eu'}</li><li>{'email': 'serge@ginsys.eu'}</li><li>{'IM': 'serge@vanginderachter.be'}</li><li>{'twitter': '@svg'}</li><li>{'IRC': 'svg'}</li><li>{'Github': 'sergevanginderachter'}</li></ul><p><img src='images/ginsys_def_Logo neg liggend bw.png' style='border:0px;background-color:#000000'></p></section><section data-background='#000000' data-transition='linear'>
+<h3>
+Current major project</h3>
+<ul><li>Flemish Government, one of the parts of Belgium</li><li>http://www.milieuinfo.be: about environmental things</li><li>Open Source island within the Flemish Govenrment Enterprise</li><li>upcoming stuff: "cloud" built on Ceph storage and Cloudstack</li><li>Ansible since September 2012</li><li>First upstream commit</li></ul><pre><code contenteditable>
+commit da92ce796b48ec80e3ead1cfe9bcbc71f5fce805
+Author Serge van Ginderachter
+Date   Wed Oct 10 19:38:30 2012 +0200
+
+  fix missing --limit in docssite examples
+
+</pre></code>
+</section><section data-background='#000000' data-transition='linear'>
+<h3>
+Ansible Inventory</h3>
+<pre><code contenteditable>
+~/src/ansible/lib/ansible$ ls inventory/
+dir.py
+expand_hosts.py
+group.py
+host.py
+ini.py
+__init__.py
+script.py
+vars_plugins
+
+</pre></code>
+</section><section data-background='#000000' data-transition='linear'>
+<h3>
+ansible.inventory</h3>
+<pre><code contenteditable>
+96         elif os.path.exists(host_list):
+97             if os.path.isdir(host_list):
+98                 # Ensure basedir is inside the directory
+99                 self.host_list = os.path.join(self.host_list, "")
+100                 self.parser = InventoryDirectory(filename=host_list)
+101                 self.groups = self.parser.groups.values()
+102             elif utils.is_executable(host_list):
+103                 self.parser = InventoryScript(filename=host_list)
+104                 self.groups = self.parser.groups.values()
+105             else:
+106                 self.parser = InventoryParser(filename=host_list)
+107                 self.groups = self.parser.groups.values()
+108
+109             utils.plugins.vars_loader.add_directory(self.basedir(), with_subdir=True)
+
+</pre></code>
+</section><section data-background='#000000' data-transition='linear'>
+<h3>
+ansible.inventory.dir</h3>
+<pre><code contenteditable>
+58             if os.path.isdir(fullpath):
+59                 parser = InventoryDirectory(filename=fullpath)
+60             elif utils.is_executable(fullpath):
+61                 parser = InventoryScript(filename=fullpath)
+62             else:
+63                 parser = InventoryParser(filename=fullpath)
+64             self.parsers.append(parser)
+
+</pre></code>
+</section><section data-background='#000000' data-transition='linear'>
+<h3>
+~/src/ansible/examples/hosts</h3>
+<pre><code contenteditable>
+# This is the default ansible 'hosts' file.
+
+# Ungrouped hosts, specify before any group headers.
+green.example.com
+blue.example.com
+192.168.100.1
+192.168.100.10
+
+# A collection of hosts belonging to the 'webservers' group
+[webservers]
+alpha.example.org
+beta.example.org
+192.168.1.100
+192.168.1.110
+
+# A collection of database servers in the 'dbservers' group
+[dbservers]
+
+db01.intranet.mydomain.net
+db02.intranet.mydomain.net
+10.25.1.56
+10.25.1.57
+
+</pre></code>
+</section><section data-background='#000000' data-transition='linear'>
+<h3>
+The Ansible inventory is not a tree!</h3>
+<pre><code contenteditable>
+google
+google/gcalendar
+google/gcalendar/backend
+google/gcalendar/backend/storage1
+google/gcalendar/backend/storage2
+google/gcalendar/backend/storage3
+google/gcalendar/frontend
+google/gcalendar/frontend/web1
+google/gcalendar/frontend/web2
+google/gcalendar/frontend/web3
+google/gdrive
+google/gdrive/backend
+google/gdrive/backend/storage1
+google/gdrive/backend/storage2
+google/gdrive/backend/storage3
+google/gdrive/frontend
+google/gdrive/frontend/web1
+google/gdrive/frontend/web2
+google/gdrive/frontend/web3
+google/gmail
+google/gmail/backend
+google/gmail/backend/storage1
+google/gmail/backend/storage2
+google/gmail/backend/storage3
+google/gmail/frontend
+google/gmail/frontend/web1
+google/gmail/frontend/web2
+google/gmail/frontend/web3
+
+</pre></code>
+</section><section data-background='#000000' data-transition='linear'>
+<h3>
+Nodes can live in different groups on different levels</h3>
+<pre><code contenteditable>
+google/nginx
+google/nginx/web1
+google/nginx/web2
+google/nginx/web3
+google/tomcat
+google/tomcat/storage1
+google/tomcat/storage2
+google/tomcat/storage3
+
+</pre></code>
+</section><section data-background='#000000' data-transition='linear'>
+<h3>
+How about Inventory variable precedence?</h3>
+<ul><li>{'Ansible docs are very succinct on how inventory variables precede each other': None}</li><li>As all things Ansible, KEEP IT SIMPLE, they say.</li></ul><blockquote>There is only one Empire State Building. One Mona Lisa, etc. Figure out where to define a variable, and do not make it complicated.</blockquote><blockquote>Remember: Child groups override parent groups, and hosts always override their groups.</blockquote></section><section data-background='#000000' data-transition='linear'>
+<h3>
+So ansible inventory is not a tree, but variables precede in child groups?</h3>
+<ul><li>Child? Parent? Tree?</li></ul><pre><code contenteditable>
+35     def add_child_group(self, group):
+36
+37         if self == group:
+38             raise Exception("cannot add group to itself")
+39
+40         # do not add if it is already there
+41         if not group in self.child_groups:
+42             self.child_groups.append(group)
+43             group.depth = max([self.depth+1, group.depth])
+44             group.parent_groups.append(self)
+45             self.clear_hosts_cache()
+
+</pre></code>
+<ul><li>When we encounter a child group, then "depth" gets a level deeper</li><li>Deeper == more child is more precedence</li><li>That *is* some kind of a tree, no?</li></ul></section><section data-background='#000000' data-transition='linear'>
+<h3>
+Q/A ?</h3>
+<p><img src='images/ginsys_def_Logo pos.png' style='border:0px;background-color:#000000'></p></section>
+
+                       </div>
+
+                </div>
+
+                <script src="lib/js/head.min.js"></script>
+                <script src="js/reveal.min.js"></script>
+
+                <script>
+
+                        // Full list of configuration options available here:
+                        // https://github.com/hakimel/reveal.js#configuration
+                        Reveal.initialize({
+                                controls: true,
+                                progress: true,
+                                history: true,
+                                center: true,
+
+                                theme: Reveal.getQueryHash().theme, // available themes are in /css/theme
+                                transition: Reveal.getQueryHash().transition || 'default', // default/cube/page/concave/zoom/linear/fade/none
+
+                                // Parallax scrolling
+                                // parallaxBackgroundImage: 'https://s3.amazonaws.com/hakim-static/reveal-js/reveal-parallax-1.jpg',
+                                // parallaxBackgroundSize: '2100px 900px',
+
+                                // Optional libraries used to extend on reveal.js
+                                dependencies: [
+                                        { src: 'lib/js/classList.js', condition: function() { return !document.body.classList; } },
+                                        { src: 'plugin/markdown/marked.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+                                        { src: 'plugin/markdown/markdown.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+                                        { src: 'plugin/highlight/highlight.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } },
+                                        { src: 'plugin/zoom-js/zoom.js', async: true, condition: function() { return !!document.body.classList; } },
+                                        { src: 'plugin/notes/notes.js', async: true, condition: function() { return !!document.body.classList; } }
+                                ]
+                        });
+
+                </script>
+
+        </body>
+</html>
+
+
