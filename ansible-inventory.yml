@@ -1,25 +1,21 @@
 ---
 header:
   author: Serge van Ginderachter
-  title: Modelling infrastructure with ansible inventory data
+  title: Introduction to the ansible inventory
   description: How does Ansible model its inventory data and how can we use it?
 
 slides:
 
    -
-     - h2: Modelling infrastructure with inventory data
+     - h2: Introduction to the ansible inventory
      - h5: How does Ansible model its inventory and how can we model our infrastructure?
 
    -
      - h3: $ whoami
      - ul:
-       - name:      Serge van Ginderachter
-       - url:       http://ginsys.eu
-       - email:     serge@ginsys.eu
-       - IM:        serge@vanginderachter.be
-       - twitter:   '@svg'
-       - IRC:       svg
-       - Github:    sergevanginderachter
+       - Serge van Ginderachter - @svg
+       - www.ginsys.eu - serge@ginsys.eu
+       - svg on Freenode
      - image:       'images/ginsys_def_Logo neg liggend bw.jpg'
 
    -
@@ -27,27 +23,15 @@ slides:
      - h3: "Infrastructure \"consultant\""
      - ul:
        - "Serge van Ginderachter"
-       - "Started in M$ shops in Small Business Environments ( at Belgian scale: 5-150 employees )"
-       - "Followed the Jedi path and turned to the bright side of life after 2005"
-       - "Ansible since +/- 18 months"
-       - "No experience with other cfgmgmt tools"
-       - First upstream commit
+       - "Ansible user and contributor since 2012 "
+       - github.com/srvg
+       - github.com/ginsys
      - code: |
-         commit da92ce796b48ec80e3ead1cfe9bcbc71f5fce805
-         Author Serge van Ginderachter
-         Date   Wed Oct 10 19:38:30 2012 +0200
+           commit da92ce796b48ec80e3ead1cfe9bcbc71f5fce805
+           Author Serge van Ginderachter
+           Date   Wed Oct 10 19:38:30 2012 +0200
 
-           fix missing --limit in docssite examples
-
-
-   -
-     - h3: Current major project
-     - ul:
-       - Flemish Government, one of the complex parts of Belgium
-       - "http://www.milieuinfo.be:    about environmental things"
-       - Open Source island within the Flemish Government Enterprise
-       - 'upcoming stuff: "cloud" built on Ceph storage and Cloudstack'
-       - Ansible since Summer 2012
+             fix missing --limit in docssite examples
 
    -
      - h3: Ansible Inventory
@@ -106,9 +90,11 @@ slides:
          192.168.100.10
 
          # A collection of hosts belonging to the 'webservers' group
-         [webservers]
+         [webservers_A]
          alpha.example.org
          beta.example.org
+
+         [webservers_B]
          192.168.1.100
          192.168.1.110
 
@@ -120,6 +106,10 @@ slides:
          10.25.1.56
          10.25.1.57
 
+         # groups can have child groups, too
+         [webservers:children]
+         webservers_A
+         webservers_B
 
    -
      - h3: Dynamic inventory scripts
@@ -199,8 +189,8 @@ slides:
 
    -
      - h3: internal Ansible inventory model
-     - ul:
-       - web1:
+     - code: |
+         web1:
            groups:
             - all
             - google
@@ -208,7 +198,7 @@ slides:
             - gdrive
             - gmail
             - frontend
-       - storage2:
+         storage2:
             groups:
             - all
             - google
@@ -219,8 +209,8 @@ slides:
 
    -
      - h3: internal Ansible inventory model - 2
-     - ul:
-       - web1:
+     - code: |
+         web1:
            groups:
                 - groupname: all
                   depth: 0
@@ -234,7 +224,10 @@ slides:
                   depth: 2
                 - groupname: frontend
                   depth: 3
-       - storage2:
+   -
+     - h3: internal Ansible inventory model - 3
+     - code: |
+         storage2:
            groups:
                 - groupname: all
                   depth: 0
@@ -259,15 +252,12 @@ slides:
      - quote: "Remember: Child groups override parent groups, and hosts always override their groups."
 
    -
-     - h3: So ansible inventory is not a tree, but variables precede in child groups?
+     - h3: So ansible inventory is not a tree
+     - h3: but variables precede in child groups?
      - ul:
        - Child? Parent? Tree?
      - code: |
          35     def add_child_group(self, group):
-         36
-         37         if self == group:
-         38             raise Exception("cannot add group to itself")
-         39
          40         # do not add if it is already there
          41         if not group in self.child_groups:
          42             self.child_groups.append(group)
@@ -275,25 +265,17 @@ slides:
          44             group.parent_groups.append(self)
          45             self.clear_hosts_cache()
      - ul:
-       - When we encounter a child group, then "depth" gets a level deeper
-       - Deeper == more child is more precedence
+       - When we encounter a child group, then "depth" gets a level deeper; the deeper the child the more precedence
        - That *is* some kind of a tree, no?
 
    -
-       - h1: The project
+       - h3: Current project
        - ul:
-            - mostly a Java shop, very standardized
-            - 75% of all virtual machines are tomcat hosts: ONE ROLE
-            - every tomcat app is a two node "cluster" behind a loadbalancer; per app one or more healthchecks
-            - per cluster typically 1 application (context), sometimes more
-            - 1 big functional application typically == several application clusters
+            - 80% of all virtual machines are tomcat hosts based on ONE ROLE
+            - every tomcat app is a two node "cluster" behind a loadbalancer
             - applications are part of a project, a project is part of an organisation
             - every application has three instances in each environment
-            -
-                - development
-                - testing
-                - production
-            - some applications communicate with other applications through the loadbalancer
+            - ontwikkel - oefen - productie
 
    -
       - h3: inventory organisation
@@ -329,7 +311,7 @@ slides:
            tomcat
            |_ application1
            |_ application2
-            <some_other_server_role_besides_tomcat>
+           drupal
            |_ application7
            |_ application9
      - p: lowest groups with nodes are at different levels in different tree's
@@ -355,154 +337,14 @@ slides:
                 ... rp-innet-oe(3)
                 ... rp-innet-pr(3)
 
-
-   -
-     - h3: "Sometimes depth is wrong!"
-     - code: |
-                . unison(1)
-                .. geoserver-dovpub(2)
-                .. geoserver-dovpub-oe(2)
-                .. geoserver-dovpub-on(2)
-                .. geoserver-dovpub-pr(2)
-     - p: "[geoserver-dovpub] is a tomcat application, but is *also* member of the [unison] group (to which a unison role maps)"
-     - p: "child groups are environment specific subgroups, but they get the the same depth as their parent"
-
-
-   -
-     - h3: 'PLAYBOOK REMINDER: ansible loops => with_items'
-     - p: 'Please "deploy some apps"'
-     - ul:
-       - app1
-       - app2
-     - code: |
-           task:
-           - command: a2ensite {{ item }}
-             with_items: applicationslist
-     - p: applicationslist is defined in the inventory
-     - code: |
-               applicationslist:
-               - application1
-               - application2
-     - p: more loops? nested loops? with_nested, with_subelements, ..
-
-   -
-     - h3: Within an application server
-     - p: we have several apps and each app can have one or more healthchecks
-     - code: |
-           node
-           |_ subapp1
-              |_ healthcheck1
-              |_ healthcheck2
-           |_ subapp1
-               ......
-
-   -
-     - h3: "data modelling so far: nodes, pools and healthchecks"
-     - code: |
-            publishedapps:
-            - name:         "web"
-              type:        "{{ default_apptype }}"
-              port:         8080
-              lbport:       "{{ default_lbport }}"
-              monitortype:  "{{ default_monitortype }}"
-              quorum:       0
-              monitors:
-              - name:      "{{ default_monitor_appname }}"
-                type:       http
-                get_path:  "{{ default_get_path }}"
-                protocol:  "{{ default_protocol }}"
-                get_extra: "{{ default_get_extra }}"
-                receive:   "{{ default_receive_string }}"
-
-   -
-     - h3: "data modelling so far: nodes, pools and healthchecks - CONTINUED"
-     - code: |
-            (... publishedapps:)
-            - name: tcp
-              type: tcp
-              port: 1234
-              lbport: 601234
-              monitortype: "{{ default_monitortype }}"
-              quorum: 0
-              monitors:
-              - name:         "tcp"
-                type:         tcp_half_open
-                send:         ""
-                receive:      ""
-
-   -
-     - h3: Create the cluster application monitors (healthchecks)
-     - p: 'snippet of a task:'
-     - code: |
-          module: ...
-            name: >
-                                {{  item.0.monitorname |
-                                    default( 'MON-'
-                                  ~ item.0.type | default(default_apptype) | upper ~ '-' ~ app
-                                  ~ ( '-' ~ item.0.name | default( 'web' ) ) | replace( '-web', '')
-                                  ~ ( '-' ~ item.1.name | default( 'web' ) ) | replace( '-web', '')
-                                  ~ '-' ~ zuil
-                                    ) }}
-            send: >
-                                {{  'GET ' ~ item.1.get_path ~ ' '
-                                  ~ item.1.protocol  | default( default_protocol )
-                                  ~ item.1.get_extra | default( '' )
-                                  ~ '\\r\\n\\r\\n' }}
-            receive:            "{{ item.1.receive | default( default_receive_string ) }}"
-            port:               "{{ item.1.port | default( 0 ) }}"
-
-          when:                 item.1.type is defined and item.1.type == 'http'
-          with_subelements:
-          - publishedapps
-          - monitors
-     - p: I will need this monitor name again later, but I can't easily definite and keep it in a variable, as it comes from a loop construct
-
-
-   -
-     - h3: Create the cluster server pools
-     - p: task snippet where we define the monitors (healthchecks) to be applied to the pool
-     - code: |
-            monitors: >
-                                {% for mon in item.monitors %}{{
-                                  '/Common/'
-                                  ~ item.monitorname |
-                                    default( 'MON-'
-                                    ~ item.type | default(default_apptype) | upper ~ '-' ~ app
-                                    ~ ( '-' ~ item.name | default( 'web' ) ) | replace( '-web', '') | replace( '-tcp', '')
-                                    ~ ( '-' ~ mon.name  | default( 'web' ) ) | replace( '-web', '') | replace( '-tcp', '')
-                                    ~ '-' ~ zuil
-                                    ) }}{% if not loop.last %},{% endif %}{% endfor %}
-
-            with_items: publishedapps
-     - p: sometimes looping within a jinja2 template gives more power, and more possibilities (and more bugs)
-
-
-
-   -
-     - h3: More loops, more deeply nested?
-     - ul:
-        - "TODO: I need to define proxies based on previous pools"
-        - Each application needs access to a set of other applications.
-        - == An applications needs the definition of a list of other applictions to get access to
-        - Then I need to loop though that list,
-        - and then the list of publishedapps for every application...
-        - "This can possibly go cross-environment...(eg we don't have separate smtp servers per environment, so dev nodes need access to smtp-production)"
-        - Maybe the list of applications can differ per environment?
-        - ...
-     - h5: This is getting too complex...
-     - p: Or should we NOT automate all things?
-
-
-
    -
      - h3: Managing inventory data
      - p: updating software versions of applications in different stacks, in different environments
      - ul:
-        - "update default java version: for all dev servers?"
-        - Keep deployed version for each application in each environment seperately
-        - Nice to have = an inventory tool that keeps track of this
-        - "let's you inherit defaults, but then remember them for particular setup"
-
+        - update default java version for all dev servers?
+        - defaults can be dangerous!!
+        - ini hosts file and host/group_vars don't scale well
+        - a more advanced inventory that let's you inherit defaults, but then remember them for particular setup
 
    -
      - h1: Q/A ?
@@ -511,5 +353,5 @@ slides:
    -
      - h1: Thanks!
      - image: 'images/ginsys_def_logotype pos.png'
-     - quote: https://github.com/sergevanginderachter/revealjs-presentations/tree/cfgmgmtcampeu-ansible-inventory
+     - quote: https://github.com/srvg/revealjs-presentations/tree/ansible-utrecht-meetup-150227
 

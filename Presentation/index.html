@@ -5,7 +5,7 @@
         <head>
                 <meta charset="utf-8">
 
-                <title>Modelling infrastructure with ansible inventory data</title>
+                <title>Introduction to the ansible inventory</title>
 
                 <meta name="description" content="How does Ansible model its inventory data and how can we use it?">
                 <meta name="author" content="Serge van Ginderachter">
@@ -23,7 +23,13 @@
 
                 <!-- If the query includes 'print-pdf', use the PDF print sheet -->
                 <script>
-                        document.write( '<link rel="stylesheet" href="css/print/' + ( window.location.search.match( /print-pdf/gi ) ? 'pdf' : 'paper' ) + '.css" type="text/css" media="print">' );
+                  if( window.location.search.match( /print-pdf/gi ) ) {
+                    var link = document.createElement( 'link' );
+                    link.rel = 'stylesheet';
+                    link.type = 'text/css';
+                    link.href = 'css/print/pdf.css';
+                    document.getElementsByTagName( 'head' )[0].appendChild( link );
+                  }
                 </script>
 
                 <!--[if lt IE 9]>
@@ -39,19 +45,19 @@
                         <div class="slides">
 
 <section data-background='#000000' data-transition='linear'>
-<h2>
-Modelling infrastructure with inventory data</h2>
-<h5>
+<h2 >
+Introduction to the ansible inventory</h2>
+<h5 >
 How does Ansible model its inventory and how can we model our infrastructure?</h5>
 </section><section data-background='#000000' data-transition='linear'>
-<h3>
+<h3 >
 $ whoami</h3>
-<ul><li>{'name': 'Serge van Ginderachter'}</li><li>{'url': 'http://ginsys.eu'}</li><li>{'email': 'serge@ginsys.eu'}</li><li>{'IM': 'serge@vanginderachter.be'}</li><li>{'twitter': '@svg'}</li><li>{'IRC': 'svg'}</li><li>{'Github': 'sergevanginderachter'}</li></ul><p><img src='images/ginsys_def_Logo neg liggend bw.jpg' style='border:0px;background-color:#000000'></p></section><section data-background='#000000' data-transition='linear'>
-<h3>
+<ul><br><li >Serge van Ginderachter - @svg</li><br><li >www.ginsys.eu - serge@ginsys.eu</li><br><li >svg on Freenode</li></ul><p><img src='images/ginsys_def_Logo neg liggend bw.jpg' style='border:0px;background-color:#000000' ></p></section><section data-background='#000000' data-transition='linear'>
+<h3 >
 $WORK</h3>
-<h3>
+<h3 >
 Infrastructure "consultant"</h3>
-<ul><li>Serge van Ginderachter</li><li>Started in M$ shops in Small Business Environments ( at Belgian scale: 5-150 employees )</li><li>Followed the Jedi path and turned to the bright side of life after 2005</li><li>Ansible since +/- 18 months</li><li>No experience with other cfgmgmt tools</li><li>First upstream commit</li></ul><pre><code contenteditable>
+<ul><br><li >Serge van Ginderachter</li><br><li >Ansible user and contributor since 2012 </li><br><li >github.com/srvg</li><br><li >github.com/ginsys</li></ul><pre><code contenteditable >
 commit da92ce796b48ec80e3ead1cfe9bcbc71f5fce805
 Author Serge van Ginderachter
 Date   Wed Oct 10 19:38:30 2012 +0200
@@ -60,14 +66,11 @@ Date   Wed Oct 10 19:38:30 2012 +0200
 
 </pre></code>
 </section><section data-background='#000000' data-transition='linear'>
-<h3>
-Current major project</h3>
-<ul><li>Flemish Government, one of the complex parts of Belgium</li><li>http://www.milieuinfo.be:    about environmental things</li><li>Open Source island within the Flemish Government Enterprise</li><li>upcoming stuff: "cloud" built on Ceph storage and Cloudstack</li><li>Ansible since Summer 2012</li></ul></section><section data-background='#000000' data-transition='linear'>
-<h3>
+<h3 >
 Ansible Inventory</h3>
-<p>
+<p >
 How can this thing be implemented?</p>
-<pre><code contenteditable>
+<pre><code contenteditable >
 ~/src/ansible/lib/ansible$ ls inventory/
 dir.py
 expand_hosts.py
@@ -80,9 +83,9 @@ vars_plugins
 
 </pre></code>
 </section><section data-background='#000000' data-transition='linear'>
-<h3>
+<h3 >
 ansible.inventory</h3>
-<pre><code contenteditable>
+<pre><code contenteditable >
 96         elif os.path.exists(host_list):
 97             if os.path.isdir(host_list):
 98                 # Ensure basedir is inside the directory
@@ -100,9 +103,9 @@ ansible.inventory</h3>
 
 </pre></code>
 </section><section data-background='#000000' data-transition='linear'>
-<h3>
+<h3 >
 ansible.inventory.dir</h3>
-<pre><code contenteditable>
+<pre><code contenteditable >
 58             if os.path.isdir(fullpath):
 59                 parser = InventoryDirectory(filename=fullpath)
 60             elif utils.is_executable(fullpath):
@@ -113,9 +116,9 @@ ansible.inventory.dir</h3>
 
 </pre></code>
 </section><section data-background='#000000' data-transition='linear'>
-<h3>
+<h3 >
 ~/src/ansible/examples/hosts</h3>
-<pre><code contenteditable>
+<pre><code contenteditable >
 # This is the default ansible 'hosts' file.
 
 # Ungrouped hosts, specify before any group headers.
@@ -125,9 +128,11 @@ blue.example.com
 192.168.100.10
 
 # A collection of hosts belonging to the 'webservers' group
-[webservers]
+[webservers_A]
 alpha.example.org
 beta.example.org
+
+[webservers_B]
 192.168.1.100
 192.168.1.110
 
@@ -139,11 +144,16 @@ db02.intranet.mydomain.net
 10.25.1.56
 10.25.1.57
 
+# groups can have child groups, too
+[webservers:children]
+webservers_A
+webservers_B
+
 </pre></code>
 </section><section data-background='#000000' data-transition='linear'>
-<h3>
+<h3 >
 Dynamic inventory scripts</h3>
-<pre><code contenteditable>
+<pre><code contenteditable >
 {
     "databases"   : {
         "hosts"   : [ "host1.example.com", "host2.example.com" ],
@@ -173,9 +183,9 @@ Dynamic inventory scripts</h3>
 
 </pre></code>
 </section><section data-background='#000000' data-transition='linear'>
-<h3>
+<h3 >
 The Ansible inventory is not a tree!</h3>
-<pre><code contenteditable>
+<pre><code contenteditable >
 google
 google/gcalendar
 google/gcalendar/backend
@@ -207,9 +217,9 @@ google/gmail/frontend/web3
 
 </pre></code>
 </section><section data-background='#000000' data-transition='linear'>
-<h3>
+<h3 >
 Nodes can live in different groups on different levels</h3>
-<pre><code contenteditable>
+<pre><code contenteditable >
 google/nginx
 google/nginx/web1
 google/nginx/web2
@@ -221,23 +231,77 @@ google/tomcat/storage3
 
 </pre></code>
 </section><section data-background='#000000' data-transition='linear'>
-<h3>
+<h3 >
 internal Ansible inventory model</h3>
-<ul><li>{'web1': {'groups': ['all', 'google', 'gcalendar', 'gdrive', 'gmail', 'frontend']}}</li><li>{'storage2': {'groups': ['all', 'google', 'gcalendar', 'gdrive', 'gmail', 'backend']}}</li></ul></section><section data-background='#000000' data-transition='linear'>
-<h3>
+<pre><code contenteditable >
+web1:
+  groups:
+   - all
+   - google
+   - gcalendar
+   - gdrive
+   - gmail
+   - frontend
+storage2:
+   groups:
+   - all
+   - google
+   - gcalendar
+   - gdrive
+   - gmail
+   - backend
+
+</pre></code>
+</section><section data-background='#000000' data-transition='linear'>
+<h3 >
 internal Ansible inventory model - 2</h3>
-<ul><li>{'web1': {'groups': [{'groupname': 'all', 'depth': 0}, {'groupname': 'google', 'depth': 1}, {'groupname': 'gcalendar', 'depth': 2}, {'groupname': 'gdrive', 'depth': 2}, {'groupname': 'gmail', 'depth': 2}, {'groupname': 'frontend', 'depth': 3}]}}</li><li>{'storage2': {'groups': [{'groupname': 'all', 'depth': 0}, {'groupname': 'google', 'depth': 1}, {'groupname': 'gcalendar', 'depth': 2}, {'groupname': 'gdrive', 'depth': 2}, {'groupname': 'gmail', 'depth': 2}, {'groupname': 'frontend', 'depth': 3}]}}</li></ul></section><section data-background='#000000' data-transition='linear'>
-<h3>
+<pre><code contenteditable >
+web1:
+  groups:
+       - groupname: all
+         depth: 0
+       - groupname: google
+         depth: 1
+       - groupname: gcalendar
+         depth: 2
+       - groupname: gdrive
+         depth: 2
+       - groupname: gmail
+         depth: 2
+       - groupname: frontend
+         depth: 3
+
+</pre></code>
+</section><section data-background='#000000' data-transition='linear'>
+<h3 >
+internal Ansible inventory model - 3</h3>
+<pre><code contenteditable >
+storage2:
+  groups:
+       - groupname: all
+         depth: 0
+       - groupname: google
+         depth: 1
+       - groupname: gcalendar
+         depth: 2
+       - groupname: gdrive
+         depth: 2
+       - groupname: gmail
+         depth: 2
+       - groupname: frontend
+         depth: 3
+
+</pre></code>
+</section><section data-background='#000000' data-transition='linear'>
+<h3 >
 How about Inventory variable precedence?</h3>
-<ul><li>Ansible docs are very succinct on how inventory variables precede each other</li><li>Because As all things Ansible, KEEP IT SIMPLE, they say.</li></ul><blockquote>There is only one Empire State Building. One Mona Lisa, etc. Figure out where to define a variable, and do not make it complicated.</blockquote><blockquote>Remember: Child groups override parent groups, and hosts always override their groups.</blockquote></section><section data-background='#000000' data-transition='linear'>
-<h3>
-So ansible inventory is not a tree, but variables precede in child groups?</h3>
-<ul><li>Child? Parent? Tree?</li></ul><pre><code contenteditable>
+<ul><br><li >Ansible docs are very succinct on how inventory variables precede each other</li><br><li >Because As all things Ansible, KEEP IT SIMPLE, they say.</li></ul><blockquote >There is only one Empire State Building. One Mona Lisa, etc. Figure out where to define a variable, and do not make it complicated.</blockquote><blockquote >Remember: Child groups override parent groups, and hosts always override their groups.</blockquote></section><section data-background='#000000' data-transition='linear'>
+<h3 >
+So ansible inventory is not a tree</h3>
+<h3 >
+but variables precede in child groups?</h3>
+<ul><br><li >Child? Parent? Tree?</li></ul><pre><code contenteditable >
 35     def add_child_group(self, group):
-36
-37         if self == group:
-38             raise Exception("cannot add group to itself")
-39
 40         # do not add if it is already there
 41         if not group in self.child_groups:
 42             self.child_groups.append(group)
@@ -246,13 +310,13 @@ So ansible inventory is not a tree, but variables precede in child groups?</h3>
 45             self.clear_hosts_cache()
 
 </pre></code>
-<ul><li>When we encounter a child group, then "depth" gets a level deeper</li><li>Deeper == more child is more precedence</li><li>That *is* some kind of a tree, no?</li></ul></section><section data-background='#000000' data-transition='linear'>
-<h1>
-The project</h1>
-<ul><li>mostly a Java shop, very standardized</li><li>{'75% of all virtual machines are tomcat hosts': 'ONE ROLE'}</li><li>every tomcat app is a two node "cluster" behind a loadbalancer; per app one or more healthchecks</li><li>per cluster typically 1 application (context), sometimes more</li><li>1 big functional application typically == several application clusters</li><li>applications are part of a project, a project is part of an organisation</li><li>every application has three instances in each environment</li><li>['development', 'testing', 'production']</li><li>some applications communicate with other applications through the loadbalancer</li></ul></section><section data-background='#000000' data-transition='linear'>
-<h3>
+<ul><br><li >When we encounter a child group, then "depth" gets a level deeper; the deeper the child the more precedence</li><br><li >That *is* some kind of a tree, no?</li></ul></section><section data-background='#000000' data-transition='linear'>
+<h3 >
+Current project</h3>
+<ul><br><li >80% of all virtual machines are tomcat hosts based on ONE ROLE</li><br><li >every tomcat app is a two node "cluster" behind a loadbalancer</li><br><li >applications are part of a project, a project is part of an organisation</li><br><li >every application has three instances in each environment</li><br><li >ontwikkel - oefen - productie</li></ul></section><section data-background='#000000' data-transition='linear'>
+<h3 >
 inventory organisation</h3>
-<pre><code contenteditable>
+<pre><code contenteditable >
 all inventory
 |_ organisation 1
    |_ project 1
@@ -273,9 +337,9 @@ all inventory
 
 </pre></code>
 </section><section data-background='#000000' data-transition='linear'>
-<h3>
+<h3 >
 other group trees (we have different tree's!)</h3>
-<pre><code contenteditable>
+<pre><code contenteditable >
 |_ development
    |_ organisation1-dev
       |_application1-dev
@@ -283,23 +347,23 @@ other group trees (we have different tree's!)</h3>
 |_ production
 
 </pre></code>
-<h6>
+<h6 >
 or also</h6>
-<pre><code contenteditable>
+<pre><code contenteditable >
 tomcat
 |_ application1
 |_ application2
- <some_other_server_role_besides_tomcat>
+drupal
 |_ application7
 |_ application9
 
 </pre></code>
-<p>
+<p >
 lowest groups with nodes are at different levels in different tree's</p>
 </section><section data-background='#000000' data-transition='linear'>
-<h3>
+<h3 >
 Example: a set of reverse proxies:</h3>
-<pre><code contenteditable>
+<pre><code contenteditable >
 all(0)
 . infra(1)
 .. rp(2)
@@ -320,165 +384,17 @@ all(0)
 
 </pre></code>
 </section><section data-background='#000000' data-transition='linear'>
-<h3>
-Sometimes depth is wrong!</h3>
-<pre><code contenteditable>
-. unison(1)
-.. geoserver-dovpub(2)
-.. geoserver-dovpub-oe(2)
-.. geoserver-dovpub-on(2)
-.. geoserver-dovpub-pr(2)
-
-</pre></code>
-<p>
-[geoserver-dovpub] is a tomcat application, but is *also* member of the [unison] group (to which a unison role maps)</p>
-<p>
-child groups are environment specific subgroups, but they get the the same depth as their parent</p>
-</section><section data-background='#000000' data-transition='linear'>
-<h3>
-PLAYBOOK REMINDER: ansible loops => with_items</h3>
-<p>
-Please "deploy some apps"</p>
-<ul><li>app1</li><li>app2</li></ul><pre><code contenteditable>
-task:
-- command: a2ensite {{ item }}
-  with_items: applicationslist
-
-</pre></code>
-<p>
-applicationslist is defined in the inventory</p>
-<pre><code contenteditable>
-applicationslist:
-- application1
-- application2
-
-</pre></code>
-<p>
-more loops? nested loops? with_nested, with_subelements, ..</p>
-</section><section data-background='#000000' data-transition='linear'>
-<h3>
-Within an application server</h3>
-<p>
-we have several apps and each app can have one or more healthchecks</p>
-<pre><code contenteditable>
-node
-|_ subapp1
-   |_ healthcheck1
-   |_ healthcheck2
-|_ subapp1
-    ......
-
-</pre></code>
-</section><section data-background='#000000' data-transition='linear'>
-<h3>
-data modelling so far: nodes, pools and healthchecks</h3>
-<pre><code contenteditable>
-publishedapps:
-- name:         "web"
-  type:        "{{ default_apptype }}"
-  port:         8080
-  lbport:       "{{ default_lbport }}"
-  monitortype:  "{{ default_monitortype }}"
-  quorum:       0
-  monitors:
-  - name:      "{{ default_monitor_appname }}"
-    type:       http
-    get_path:  "{{ default_get_path }}"
-    protocol:  "{{ default_protocol }}"
-    get_extra: "{{ default_get_extra }}"
-    receive:   "{{ default_receive_string }}"
-
-</pre></code>
-</section><section data-background='#000000' data-transition='linear'>
-<h3>
-data modelling so far: nodes, pools and healthchecks - CONTINUED</h3>
-<pre><code contenteditable>
-(... publishedapps:)
-- name: tcp
-  type: tcp
-  port: 1234
-  lbport: 601234
-  monitortype: "{{ default_monitortype }}"
-  quorum: 0
-  monitors:
-  - name:         "tcp"
-    type:         tcp_half_open
-    send:         ""
-    receive:      ""
-
-</pre></code>
-</section><section data-background='#000000' data-transition='linear'>
-<h3>
-Create the cluster application monitors (healthchecks)</h3>
-<p>
-snippet of a task:</p>
-<pre><code contenteditable>
-module: ...
-  name: >
-                      {{  item.0.monitorname |
-                          default( 'MON-'
-                        ~ item.0.type | default(default_apptype) | upper ~ '-' ~ app
-                        ~ ( '-' ~ item.0.name | default( 'web' ) ) | replace( '-web', '')
-                        ~ ( '-' ~ item.1.name | default( 'web' ) ) | replace( '-web', '')
-                        ~ '-' ~ zuil
-                          ) }}
-  send: >
-                      {{  'GET ' ~ item.1.get_path ~ ' '
-                        ~ item.1.protocol  | default( default_protocol )
-                        ~ item.1.get_extra | default( '' )
-                        ~ '\\r\\n\\r\\n' }}
-  receive:            "{{ item.1.receive | default( default_receive_string ) }}"
-  port:               "{{ item.1.port | default( 0 ) }}"
-
-when:                 item.1.type is defined and item.1.type == 'http'
-with_subelements:
-- publishedapps
-- monitors
-
-</pre></code>
-<p>
-I will need this monitor name again later, but I can't easily definite and keep it in a variable, as it comes from a loop construct</p>
-</section><section data-background='#000000' data-transition='linear'>
-<h3>
-Create the cluster server pools</h3>
-<p>
-task snippet where we define the monitors (healthchecks) to be applied to the pool</p>
-<pre><code contenteditable>
-monitors: >
-                    {% for mon in item.monitors %}{{
-                      '/Common/'
-                      ~ item.monitorname |
-                        default( 'MON-'
-                        ~ item.type | default(default_apptype) | upper ~ '-' ~ app
-                        ~ ( '-' ~ item.name | default( 'web' ) ) | replace( '-web', '') | replace( '-tcp', '')
-                        ~ ( '-' ~ mon.name  | default( 'web' ) ) | replace( '-web', '') | replace( '-tcp', '')
-                        ~ '-' ~ zuil
-                        ) }}{% if not loop.last %},{% endif %}{% endfor %}
-
-with_items: publishedapps
-
-</pre></code>
-<p>
-sometimes looping within a jinja2 template gives more power, and more possibilities (and more bugs)</p>
-</section><section data-background='#000000' data-transition='linear'>
-<h3>
-More loops, more deeply nested?</h3>
-<ul><li>TODO: I need to define proxies based on previous pools</li><li>Each application needs access to a set of other applications.</li><li>== An applications needs the definition of a list of other applictions to get access to</li><li>Then I need to loop though that list,</li><li>and then the list of publishedapps for every application...</li><li>This can possibly go cross-environment...(eg we don't have separate smtp servers per environment, so dev nodes need access to smtp-production)</li><li>Maybe the list of applications can differ per environment?</li><li>...</li></ul><h5>
-This is getting too complex...</h5>
-<p>
-Or should we NOT automate all things?</p>
-</section><section data-background='#000000' data-transition='linear'>
-<h3>
+<h3 >
 Managing inventory data</h3>
-<p>
+<p >
 updating software versions of applications in different stacks, in different environments</p>
-<ul><li>update default java version: for all dev servers?</li><li>Keep deployed version for each application in each environment seperately</li><li>Nice to have = an inventory tool that keeps track of this</li><li>let's you inherit defaults, but then remember them for particular setup</li></ul></section><section data-background='#000000' data-transition='linear'>
-<h1>
+<ul><br><li >update default java version for all dev servers?</li><br><li >defaults can be dangerous!!</li><br><li >ini hosts file and host/group_vars don't scale well</li><br><li >a more advanced inventory that let's you inherit defaults, but then remember them for particular setup</li></ul></section><section data-background='#000000' data-transition='linear'>
+<h1 >
 Q/A ?</h1>
-<p><img src='images/ginsys_def_Logo pos.png' style='border:0px;background-color:#000000'></p></section><section data-background='#000000' data-transition='linear'>
-<h1>
+<p><img src='images/ginsys_def_Logo pos.png' style='border:0px;background-color:#000000' ></p></section><section data-background='#000000' data-transition='linear'>
+<h1 >
 Thanks!</h1>
-<p><img src='images/ginsys_def_logotype pos.png' style='border:0px;background-color:#000000'></p><blockquote>https://github.com/sergevanginderachter/revealjs-presentations/tree/cfgmgmtcampeu-ansible-inventory</blockquote></section>
+<p><img src='images/ginsys_def_logotype pos.png' style='border:0px;background-color:#000000' ></p><blockquote >https://github.com/srvg/revealjs-presentations/tree/ansible-utrecht-meetup-150227</blockquote></section>
 
                        </div>
 
